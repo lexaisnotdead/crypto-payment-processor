@@ -1,0 +1,84 @@
+services:
+    postgres:
+        image: postgres:16
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: crypto_processor
+        ports:
+            - "5432:5432"
+        volumes:
+            - pg_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    redis:
+        image: redis:7
+        ports:
+            - "6379:6379"
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    api:
+        build: .
+        command: npm exec tsx apps/api/src/server.ts
+        environment:
+            PORT: 3000
+            DATABASE_URL: postgres://postgres:postgres@postgres:5432/crypto_processor
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            CHAIN_ID: 11155111
+            RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
+            FACTORY_ADDRESS: 0x0000000000000000000000000000000000000000
+            DEPOSIT_IMPLEMENTATION_ADDRESS: 0x0000000000000000000000000000000000000000
+            HOT_WALLET_PRIVATE_KEY: 0x0000000000000000000000000000000000000000000000000000000000000000
+            PRICE_API_BASE: https://example.invalid
+        ports:
+            - "3000:3000"
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+    worker:
+        build: .
+        command: npm exec tsx apps/api/src/workers/index.ts
+        environment:
+            DATABASE_URL: postgres://postgres:postgres@postgres:5432/crypto_processor
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            CHAIN_ID: 11155111
+            RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
+            FACTORY_ADDRESS: 0x0000000000000000000000000000000000000000
+            HOT_WALLET_PRIVATE_KEY: 0x0000000000000000000000000000000000000000000000000000000000000000
+            PRICE_API_BASE: https://example.invalid
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+    ponder:
+        build: .
+        command: npm exec ponder start --config apps/indexer/ponder.config.ts
+        environment:
+            DATABASE_URL: postgres://postgres:postgres@postgres:5432/crypto_processor
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
+            ERC20_TOKEN_ADDRESS: 0x0000000000000000000000000000000000000000
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+volumes:
+    pg_data:
