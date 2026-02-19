@@ -4,10 +4,10 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { depositAddresses, users } from "../db/schema.js";
 import { predictDeterministicCloneAddress } from "../services/address.js";
+import { loadDeploymentAddresses } from "../services/deployment.js";
 
-const FACTORY_ADDRESS = process.env.FACTORY_ADDRESS as `0x${string}`;
-const IMPLEMENTATION_ADDRESS = process.env.DEPOSIT_IMPLEMENTATION_ADDRESS as `0x${string}`;
 const CHAIN_ID = Number(process.env.CHAIN_ID ?? 11155111);
+const deploymentAddresses = loadDeploymentAddresses(CHAIN_ID);
 
 export const depositsRoute = new Hono();
 
@@ -60,8 +60,8 @@ depositsRoute.get("/:userId/:tokenAddress", async (c) => {
         const nextIndex = nextIndexRows[0]?.nextIndex ?? 0;
 
         const { salt, predictedAddress } = predictDeterministicCloneAddress({
-            factoryAddress: FACTORY_ADDRESS,
-            implementationAddress: IMPLEMENTATION_ADDRESS,
+            factoryAddress: deploymentAddresses.walletFactory,
+            implementationAddress: deploymentAddresses.depositLogic,
             userId: userExternalId,
             tokenAddress,
             index: nextIndex,
