@@ -262,6 +262,37 @@ GET /v1/transactions?userId=...&status=...&type=...
 }
 ```
 
+### Tokens
+
+#### Add or Update Supported Token
+
+```
+POST /v1/tokens
+```
+
+**Optional Parameters:**
+ - `chainId`: `11155111` by default
+ - `isActive`: Status
+ - `sweepGasMultiplier`: Multiplier for calculating profitability
+
+**Request body:**
+```json
+{
+  "tokenAddress": "0x...",
+  "symbol": "USDT",
+  "decimals": 6,
+  "chainId": 11155111,
+  "isActive": true,
+  "sweepGasMultiplier": "10.0"
+}
+```
+
+#### List Supported Tokens
+
+```
+GET /v1/tokens?chainId=11155111
+```
+
 ### Health Check
 
 ```
@@ -323,6 +354,6 @@ Where:
 - Gas cost: $100
 - Multiplier: 10x
 - Threshold: $100 × 10 = $1,000
-- Decision: $2,500 >= $1,000 → **SWEEP** ✓
+- Decision: $2,500 >= $1,000 → **SWEEP**
 
 Metadata about each decision is stored in the `transactions` table for audit trails.
