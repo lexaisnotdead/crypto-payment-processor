@@ -70,10 +70,9 @@ Crypto Processor is designed to:
 | **ORM** | Drizzle ORM |
 | **Database** | PostgreSQL |
 | **Cache/Queue** | Redis, BullMQ |
-| **Blockchain** | Viem |
 | **Blockchain Indexing** | Ponder |
 | **Smart Contracts** | Solidity |
-| **Contract Dev Tools** | Foundry |
+| **Contract Dev Tools** | Foundry, Viem |
 | **Testing** | Vitest |
 | **Container** | Docker, Docker Compose |
 
@@ -345,7 +344,7 @@ Implementation contract for individual wallet logic (deployed as proxy clones).
 The system decides whether to sweep tokens based on:
 
 ```
-SWEEP if: tokenValue >= gasEstimate × multiplier
+SWEEP if: tokenValue >= gasEstimate x multiplier
 ```
 
 Where:
@@ -357,7 +356,7 @@ Where:
 - Token value: $2,500
 - Gas cost: $100
 - Multiplier: 10x
-- Threshold: $100 × 10 = $1,000
-- Decision: $2,500 >= $1,000 → **SWEEP**
+- Threshold: $100 x 10 = $1,000
+- Decision: $2,500 >= $1,000 -> **SWEEP**
 
 Metadata about each decision is stored in the `transactions` table for audit trails.

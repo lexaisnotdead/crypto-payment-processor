@@ -18,7 +18,6 @@ export type ProfitabilityResult = {
 
 export const DEFAULT_MULTIPLIER_SCALED = DEFAULT_MULTIPLIER_X * SCALE;
 
-// We keep everything in fixed-point bigint to make the equality boundary deterministic.
 export function evaluateSweepProfitability(input: ProfitabilityInput): ProfitabilityResult {
     const { tokenValueUsdE18, gasCostUsdE18 } = input;
     const multiplierScaled = input.multiplierScaled ?? DEFAULT_MULTIPLIER_SCALED;
