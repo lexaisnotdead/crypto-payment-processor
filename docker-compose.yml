@@ -29,15 +29,15 @@ services:
         build: .
         command: npm exec tsx apps/api/src/server.ts
         environment:
-            PORT: 3000
-            DATABASE_URL: postgres://postgres:postgres@postgres:5432/crypto_processor
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
-            REDIS_URL: redis://redis:6379
-            CHAIN_ID: 11155111
-            RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
-            PRIVATE_KEY: 0x0000000000000000000000000000000000000000000000000000000000000000
-            PRICE_API_BASE: https://api.example.com
+            PORT: ${PORT:-3000}
+            DATABASE_URL: ${DATABASE_URL_DOCKER:?DATABASE_URL_DOCKER is required}
+            REDIS_HOST: ${REDIS_HOST_DOCKER:-redis}
+            REDIS_PORT: ${REDIS_PORT_DOCKER:-6379}
+            REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
+            CHAIN_ID: ${CHAIN_ID:-11155111}
+            RPC_URL: ${RPC_URL:?RPC_URL is required}
+            PRIVATE_KEY: ${PRIVATE_KEY:?PRIVATE_KEY is required}
+            PRICE_API_BASE: ${PRICE_API_BASE:?PRICE_API_BASE is required}
         ports:
             - "3000:3000"
         depends_on:
@@ -50,14 +50,14 @@ services:
         build: .
         command: npm exec tsx apps/api/src/workers/index.ts
         environment:
-            DATABASE_URL: postgres://postgres:postgres@postgres:5432/crypto_processor
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
-            REDIS_URL: redis://redis:6379
-            CHAIN_ID: 11155111
-            RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
-            PRIVATE_KEY: 0x0000000000000000000000000000000000000000000000000000000000000000
-            PRICE_API_BASE: https://api.example.com
+            DATABASE_URL: ${DATABASE_URL_DOCKER:?DATABASE_URL_DOCKER is required}
+            REDIS_HOST: ${REDIS_HOST_DOCKER:-redis}
+            REDIS_PORT: ${REDIS_PORT_DOCKER:-6379}
+            REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
+            CHAIN_ID: ${CHAIN_ID:-11155111}
+            RPC_URL: ${RPC_URL:?RPC_URL is required}
+            PRIVATE_KEY: ${PRIVATE_KEY:?PRIVATE_KEY is required}
+            PRICE_API_BASE: ${PRICE_API_BASE:?PRICE_API_BASE is required}
         depends_on:
             postgres:
                 condition: service_healthy
@@ -66,15 +66,15 @@ services:
 
     ponder:
         build: .
-        command: npm exec ponder start --config apps/indexer/ponder.config.ts
+        command: npm exec -- ponder start --root apps/indexer --config ponder.config.ts
         environment:
-            DATABASE_URL: postgres://postgres:postgres@postgres:5432/crypto_processor
-            CHAIN_ID: 11155111
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
-            REDIS_URL: redis://redis:6379
-            RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
-            DEFAULT_ERC20_TOKEN: 0xbDeaD2A70Fe794D2f97b37EFDE497e68974a296d
+            DATABASE_URL: ${DATABASE_URL_DOCKER:?DATABASE_URL_DOCKER is required}
+            CHAIN_ID: ${CHAIN_ID:-11155111}
+            REDIS_HOST: ${REDIS_HOST_DOCKER:-redis}
+            REDIS_PORT: ${REDIS_PORT_DOCKER:-6379}
+            REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
+            RPC_URL: ${RPC_URL:?RPC_URL is required}
+            DEFAULT_ERC20_TOKEN: ${DEFAULT_ERC20_TOKEN:-0xbDeaD2A70Fe794D2f97b37EFDE497e68974a296d}
         depends_on:
             postgres:
                 condition: service_healthy

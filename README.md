@@ -107,19 +107,23 @@ Create a `.env` file in the root directory:
 ```env
 # Database
 DATABASE_URL=postgres://postgres:postgres@postgres:5432/crypto_processor
+DATABASE_URL_DOCKER=postgres://postgres:postgres@postgres:5432/crypto_processor
 
 # Redis
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_URL=redis://redis:6379
+REDIS_HOST_DOCKER=redis
+REDIS_PORT_DOCKER=6379
+REDIS_URL_DOCKER=redis://redis:6379
 
 # Network Configuration
 CHAIN_ID=11155111
-RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+RPC_URL=https://your-rpc-provider
 DEFAULT_ERC20_TOKEN=0xbDeaD2A70Fe794D2f97b37EFDE497e68974a296d
 
 # Wallet (for executing sweeps)
-PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000
+PRIVATE_KEY=0xYOUR_PRIVATE_KEY
 
 # External Services
 PRICE_API_BASE=https://api.coingecko.com/api/v3

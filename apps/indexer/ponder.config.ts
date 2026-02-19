@@ -62,7 +62,7 @@ export default createConfig({
             ],
             network: "sepolia",
             address: erc20TokenAddresses,
-            startBlock: 24487026,
+            startBlock: 0,
         },
     },
 });

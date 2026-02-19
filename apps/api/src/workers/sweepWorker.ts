@@ -2,7 +2,7 @@ import "dotenv/config";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { and, eq } from "drizzle-orm";
-import { formatUnits, http, parseUnits } from "viem";
+import { defineChain, formatUnits, http, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createPublicClient, createWalletClient } from "viem";
 import { sepolia } from "viem/chains";
@@ -23,12 +23,21 @@ if (!process.env.PRICE_API_BASE) {
     throw new Error("PRICE_API_BASE environment variable is required");
 }
 
+const CHAIN_ID = Number(process.env.CHAIN_ID ?? 11155111);
+const runtimeChain =
+    CHAIN_ID === sepolia.id
+        ? sepolia
+        : defineChain({
+              id: CHAIN_ID,
+              name: `chain-${CHAIN_ID}`,
+              nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+              rpcUrls: { default: { http: [process.env.RPC_URL as string] } },
+          });
+
 const redis = new Redis(process.env.REDIS_URL ?? "redis://redis:6379");
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
-const publicClient = createPublicClient({ chain: sepolia, transport: http(process.env.RPC_URL) });
-const walletClient = createWalletClient({ account, chain: sepolia, transport: http(process.env.RPC_URL) });
-
-const CHAIN_ID = Number(process.env.CHAIN_ID ?? 11155111);
+const publicClient = createPublicClient({ chain: runtimeChain, transport: http(process.env.RPC_URL) });
+const walletClient = createWalletClient({ account, chain: runtimeChain, transport: http(process.env.RPC_URL) });
 const PRICE_API_BASE = process.env.PRICE_API_BASE;
 const deploymentAddresses = loadDeploymentAddresses(CHAIN_ID);
 const SENDER_LOCK_TTL_MS = 600_000;
@@ -140,7 +149,7 @@ export const sweepWorker = new Worker<SweepJob>(
                 if (profitability.decision === "SKIP") {
                     await db
                         .update(transactions)
-                        .set({ status: "CONFIRMED", meta: decisionMeta, error: "NOT_PROFITABLE" })
+                        .set({ status: "CONFIRMED", meta: decisionMeta, error: "NOT_PROFITABLE", updatedAt: new Date() })
                         .where(
                             and(
                                 eq(transactions.chainId, payload.chainId),
@@ -203,6 +212,7 @@ export const sweepWorker = new Worker<SweepJob>(
                         gasUsed: receipt.gasUsed.toString(),
                         gasPriceWei: receipt.effectiveGasPrice.toString(),
                         error: receipt.status === "success" ? null : "SWEEP_TX_FAILED",
+                        updatedAt: new Date(),
                     })
                     .where(and(eq(transactions.chainId, payload.chainId), eq(transactions.txHash, sweepTxHash)));
             } catch (error) {
@@ -216,6 +226,7 @@ export const sweepWorker = new Worker<SweepJob>(
                         .set({
                             status: "FAILED",
                             error: errorMsg.substring(0, 500), // Truncate to avoid DB issues
+                            updatedAt: new Date(),
                         })
                         .where(
                             and(
