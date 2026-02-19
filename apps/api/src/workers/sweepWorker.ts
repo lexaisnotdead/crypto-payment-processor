@@ -41,6 +41,13 @@ const walletClient = createWalletClient({ account, chain: runtimeChain, transpor
 const PRICE_API_BASE = process.env.PRICE_API_BASE;
 const deploymentAddresses = loadDeploymentAddresses(CHAIN_ID);
 const SENDER_LOCK_TTL_MS = 600_000;
+const COINGECKO_ID_BY_SYMBOL: Record<string, string> = {
+    ETH: "ethereum",
+    BTC: "bitcoin",
+    WBTC: "wrapped-bitcoin",
+    USDT: "tether",
+    USDC: "usd-coin",
+};
 
 function parseMultiplierToScaled(value: string | null): bigint {
     if (!value) return DEFAULT_MULTIPLIER_SCALED;
@@ -49,14 +56,25 @@ function parseMultiplierToScaled(value: string | null): bigint {
     return BigInt(whole) * 10_000n + BigInt(normalizedFraction);
 }
 
-async function fetchUsdE18(asset: string): Promise<bigint> {
-    const response = await fetch(`${PRICE_API_BASE}/price?asset=${asset}`);
+function resolveCoinId(symbol: string): string {
+    const normalizedSymbol = symbol.trim().toUpperCase();
+    return COINGECKO_ID_BY_SYMBOL[normalizedSymbol] ?? normalizedSymbol.toLowerCase();
+}
+
+async function fetchUsdE18(coinId: string): Promise<bigint> {
+    const base = PRICE_API_BASE.replace(/\/+$/, "");
+    const url = `${base}/simple/price?ids=${encodeURIComponent(coinId)}&vs_currencies=usd`;
+    const response = await fetch(url);
     if (!response.ok) {
-        throw new Error(`Price API failed for ${asset}`);
+        throw new Error(`Price API failed for coinId=${coinId}`);
     }
 
-    const data = (await response.json()) as { usd: string };
-    return parseUnits(data.usd, 18);
+    const data = (await response.json()) as Record<string, { usd?: number }>;
+    const usd = data[coinId]?.usd;
+    if (usd === undefined || !Number.isFinite(usd)) {
+        throw new Error(`Price API response is missing usd for coinId=${coinId}`);
+    }
+    return parseUnits(usd.toString(), 18);
 }
 
 function normalizeAddress(value: string): `0x${string}` {
@@ -123,8 +141,8 @@ export const sweepWorker = new Worker<SweepJob>(
                 const gasCostWei = gasLimit * maxFeePerGas;
 
                 const [ethUsdE18, tokenUsdE18] = await Promise.all([
-                    fetchUsdE18("ETH"),
-                    fetchUsdE18(`${payload.chainId}:${normalizeAddress(payload.tokenAddress)}`),
+                    fetchUsdE18(resolveCoinId("ETH")),
+                    fetchUsdE18(resolveCoinId(tokenConfig.symbol)),
                 ]);
 
                 const tokenValueUsdE18 = (balance * tokenUsdE18) / 10n ** BigInt(tokenConfig.decimals);
