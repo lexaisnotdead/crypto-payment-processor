@@ -2,10 +2,10 @@ import "dotenv/config";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { and, eq } from "drizzle-orm";
-import { defineChain, formatUnits, http, parseUnits } from "viem";
+import { formatUnits, http, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createPublicClient, createWalletClient } from "viem";
-import { sepolia } from "viem/chains";
+import { resolveNetwork } from "../services/networks.js";
 
 import { erc20Abi } from "../../../../packages/shared/src/abi/erc20.js";
 import { walletFactoryAbi } from "../../../../packages/shared/src/abi/walletFactory.js";
@@ -24,15 +24,7 @@ if (!process.env.PRICE_API_BASE) {
 }
 
 const CHAIN_ID = Number(process.env.CHAIN_ID ?? 11155111);
-const runtimeChain =
-    CHAIN_ID === sepolia.id
-        ? sepolia
-        : defineChain({
-              id: CHAIN_ID,
-              name: `chain-${CHAIN_ID}`,
-              nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-              rpcUrls: { default: { http: [process.env.RPC_URL as string] } },
-          });
+const runtimeChain = resolveNetwork(CHAIN_ID);
 
 const redis = new Redis(process.env.REDIS_URL ?? "redis://redis:6379");
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
@@ -41,24 +33,12 @@ const walletClient = createWalletClient({ account, chain: runtimeChain, transpor
 const PRICE_API_BASE = process.env.PRICE_API_BASE;
 const deploymentAddresses = loadDeploymentAddresses(CHAIN_ID);
 const SENDER_LOCK_TTL_MS = 600_000;
-const COINGECKO_ID_BY_SYMBOL: Record<string, string> = {
-    ETH: "ethereum",
-    BTC: "bitcoin",
-    WBTC: "wrapped-bitcoin",
-    USDT: "tether",
-    USDC: "usd-coin",
-};
 
 function parseMultiplierToScaled(value: string | null): bigint {
     if (!value) return DEFAULT_MULTIPLIER_SCALED;
     const [whole = "0", fraction = ""] = value.split(".");
     const normalizedFraction = (fraction + "0000").slice(0, 4);
     return BigInt(whole) * 10_000n + BigInt(normalizedFraction);
-}
-
-function resolveCoinId(symbol: string): string {
-    const normalizedSymbol = symbol.trim().toUpperCase();
-    return COINGECKO_ID_BY_SYMBOL[normalizedSymbol] ?? normalizedSymbol.toLowerCase();
 }
 
 async function fetchUsdE18(coinId: string): Promise<bigint> {
@@ -141,8 +121,8 @@ export const sweepWorker = new Worker<SweepJob>(
                 const gasCostWei = gasLimit * maxFeePerGas;
 
                 const [ethUsdE18, tokenUsdE18] = await Promise.all([
-                    fetchUsdE18(resolveCoinId("ETH")),
-                    fetchUsdE18(resolveCoinId(tokenConfig.symbol)),
+                    fetchUsdE18("eth"),
+                    fetchUsdE18(tokenConfig.symbol.toLowerCase()),
                 ]);
 
                 const tokenValueUsdE18 = (balance * tokenUsdE18) / 10n ** BigInt(tokenConfig.decimals);
@@ -191,6 +171,7 @@ export const sweepWorker = new Worker<SweepJob>(
 
                 const sweepTxHash = await walletClient.writeContract({
                     account,
+                    chain: runtimeChain,
                     address: deploymentAddresses.walletFactory,
                     abi: walletFactoryAbi,
                     functionName: "deployAndSweep",

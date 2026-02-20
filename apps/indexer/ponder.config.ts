@@ -3,8 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { http } from "viem";
-import * as viemChains from "viem/chains";
-
+import { resolveNetwork } from "apps/api/src/services/networks.js";
 import { supportedTokens } from "../api/src/db/schema.js";
 
 const DEFAULT_ERC20_TOKEN = (
@@ -15,7 +14,7 @@ const chainId = Number(process.env.CHAIN_ID ?? 11155111);
 if (!Number.isInteger(chainId) || chainId <= 0) {
     throw new Error(`Invalid CHAIN_ID value: ${process.env.CHAIN_ID ?? ""}`);
 }
-const networkName = resolveNetworkName(chainId);
+const networkName = resolveNetwork(chainId);
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -57,7 +56,7 @@ const erc20TokenAddresses = [...new Set(tokenRows.map((row) => row.tokenAddress.
 
 export default createConfig({
     networks: {
-        [networkName]: {
+        [networkName?.name as string]: {
             chainId,
             transport: http(process.env.RPC_URL),
         },
@@ -79,25 +78,9 @@ export default createConfig({
                     ],
                 },
             ],
-            network: networkName,
+            network: networkName?.name as string,
             address: erc20TokenAddresses,
             startBlock: 0,
         },
     },
 });
-
-function resolveNetworkName(targetChainId: number): string {
-    for (const [name, maybeChain] of Object.entries(viemChains)) {
-        if (
-            typeof maybeChain === "object" &&
-            maybeChain !== null &&
-            "id" in maybeChain &&
-            typeof maybeChain.id === "number" &&
-            maybeChain.id === targetChainId
-        ) {
-            return name;
-        }
-    }
-
-    return `chain_${targetChainId}`;
-}
