@@ -97,6 +97,8 @@ export const sweepWorker = new Worker<SweepJob>(
     "sweep",
     async (job) => {
         const payload = job.data;
+        const tokenAddress = normalizeAddress(payload.tokenAddress);
+        const depositAddress = normalizeAddress(payload.depositAddress);
         const lockKey = `sweep:nonce:${payload.chainId}:${account.address}`;
 
         await withSenderLock(redis, lockKey, SENDER_LOCK_TTL_MS, async () => {
@@ -107,7 +109,7 @@ export const sweepWorker = new Worker<SweepJob>(
                     .where(
                         and(
                             eq(supportedTokens.chainId, payload.chainId),
-                            eq(supportedTokens.tokenAddress, normalizeAddress(payload.tokenAddress)),
+                            eq(supportedTokens.tokenAddress, tokenAddress),
                         ),
                     )
                     .limit(1);
@@ -121,7 +123,7 @@ export const sweepWorker = new Worker<SweepJob>(
                 const [deposit] = await db
                     .select()
                     .from(depositAddresses)
-                    .where(eq(depositAddresses.predictedAddress, normalizeAddress(payload.depositAddress)))
+                    .where(eq(depositAddresses.predictedAddress, depositAddress))
                     .limit(1);
 
                 if (!deposit) {
@@ -132,9 +134,9 @@ export const sweepWorker = new Worker<SweepJob>(
 
                 const balance = await publicClient.readContract({
                     abi: erc20Abi,
-                    address: normalizeAddress(payload.tokenAddress),
+                    address: tokenAddress,
                     functionName: "balanceOf",
-                    args: [normalizeAddress(payload.depositAddress)],
+                    args: [depositAddress],
                 });
 
                 if (balance <= 0n) {
@@ -156,7 +158,7 @@ export const sweepWorker = new Worker<SweepJob>(
                     address: deploymentAddresses.walletFactory,
                     abi: walletFactoryAbi,
                     functionName: "deployAndSweep",
-                    args: [salt, normalizeAddress(payload.tokenAddress)],
+                    args: [salt, tokenAddress],
                 });
                 const gasCostWei = gasLimit * maxFeePerGas;
 
@@ -206,7 +208,7 @@ export const sweepWorker = new Worker<SweepJob>(
                     address: deploymentAddresses.walletFactory,
                     abi: walletFactoryAbi,
                     functionName: "deployAndSweep",
-                    args: [salt, normalizeAddress(payload.tokenAddress)],
+                    args: [salt, tokenAddress],
                     nonce,
                     maxFeePerGas,
                 });
@@ -218,8 +220,8 @@ export const sweepWorker = new Worker<SweepJob>(
                     type: "SWEEP",
                     status: "PENDING",
                     chainId: payload.chainId,
-                    tokenAddress: normalizeAddress(payload.tokenAddress),
-                    fromAddress: normalizeAddress(payload.depositAddress),
+                    tokenAddress: tokenAddress,
+                    fromAddress: depositAddress,
                     toAddress: deploymentAddresses.walletFactory,
                     amountWei: balance.toString(),
                     txHash: sweepTxHash,

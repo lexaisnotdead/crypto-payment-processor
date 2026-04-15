@@ -4,14 +4,14 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import type { TransactionMeta, SweepJob } from "../../../packages/shared/src/types.js";
+import type { SweepJob } from "../../../packages/shared/src/types.js";
 import { ponder } from "@/generated";
 import { depositAddresses, supportedTokens, transactions } from "../../api/src/db/schema.js";
 import { processTransferEvent, type TransferProcessorDeps, type TransferProcessorInput } from "./transferProcessor.js";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool);
-const sweepQueue = new Queue("sweep", {
+const sweepQueue = new Queue<SweepJob>("sweep", {
     connection: {
         host: process.env.REDIS_HOST ?? "redis",
         port: Number(process.env.REDIS_PORT ?? 6379),
