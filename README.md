@@ -36,30 +36,57 @@ Crypto Processor is designed to:
 ### System Components
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                     REST API (Hono)                        │
-│              Deposit & Transaction Management              │
-└──────────────────────────┬─────────────────────────────────┘
-                           │
-            ┌──────────────┼──────────────┐
-            │              │              │
-       ┌────▼─────┐  ┌─────▼──────┐  ┌────▼─────┐
-       │PostgreSQL│  │   Redis    │  │  Viem    │
-       │   (DB)   │  │  (Queue)   │  │  (RPC)   │
-       └──────────┘  └────────────┘  └──────────┘
-            ▲              │              ▲
-            │         ┌────▼─────┐        │
-            │         │  Worker  │────────┤
-            │         │ (Sweep)  │        │
-            └─────────┴──────────┘        │
-                                          │
-            ┌─────────────────────────────┘
-            │
-       ┌────▼─────────────┐
-       │ Ponder Indexer   │
-       │ (Blockchain      │
-       │  listening)      │
-       └──────────────────┘
+┌───────────────────────────────┐
+│       External clients        │
+│ deposits / tokens / history   │
+└───────────────┬───────────────┘
+                │ HTTP
+                ▼
+┌──────────────────────────────────────────────────────┐
+│ REST API (Hono)                                      │
+│ - POST /v1/deposits reserves deterministic addresses │
+│ - GET /v1/deposits and /v1/transactions read state   │
+│ - POST /v1/tokens is admin-key protected             │
+└───────────────┬──────────────────────────────────────┘
+                │ Drizzle ORM
+                ▼
+┌──────────────────────────────────────────────────────┐
+│ PostgreSQL                                           │
+│ users, supported_tokens, deposit_addresses,          │
+│ transactions, lifecycle metadata                     │
+└───────────────▲──────────────────────────▲───────────┘
+                │                          │
+        lookup/write deposits              │ read config + update tx lifecycle
+                │                          │
+┌───────────────┴───────────────┐          │
+│ Ponder Indexer                │          │
+│ - listens to ERC20 Transfers  │          │
+│ - matches known deposits      │          │
+│ - inserts deposit tx records  │          │
+└───────────────┬───────────────┘          │
+                │ enqueue sweep jobs       │
+                ▼                          │
+┌───────────────────────────────┐          │
+│ Redis                         │──────────┤
+│ BullMQ sweep queue            │  consume │
+│ sender nonce locks            │          │
+└───────────────────────────────┘          │
+                                           │
+                             ┌─────────────┴──────────────┐
+                             │ Sweep Worker               │
+                             │ - checks ERC20 balance     │
+                             │ - compares token/gas value │
+                             │ - calls deployAndSweep     │
+                             └──────┬───────────────┬─────┘
+                                    │ HTTPS         │ RPC / Viem
+                                    ▼               ▼
+                          ┌────────────────┐  ┌──────────────────────────────┐
+                          │ Price API      │  │ Blockchain network           │
+                          │ priceProviderId│  │ ERC20 + WalletFactory +      │
+                          └────────────────┘  │ DepositLogic contracts       │
+                                              └──────────────▲───────────────┘
+                                                             │ Transfer events
+                                                             └── to Ponder
 ```
 
 ### Technology Stack
