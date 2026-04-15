@@ -56,3 +56,5 @@ artifacts/
 .turbo/
 dist-ssr/
 *.local
+.omx/
+.codex/

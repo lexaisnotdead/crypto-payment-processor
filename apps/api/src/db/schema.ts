@@ -1,5 +1,7 @@
+import type { TransactionMeta } from "../../../../packages/shared/src/types.js";
 import { relations, sql } from "drizzle-orm";
 import {
+    index,
     integer,
     jsonb,
     numeric,
@@ -51,6 +53,7 @@ export const supportedTokens = app.table(
         chainId: integer("chain_id").notNull(),
         tokenAddress: text("token_address").notNull(),
         symbol: text("symbol").notNull(),
+        priceProviderId: text("price_provider_id").notNull(),
         decimals: integer("decimals").notNull(),
         isActive: integer("is_active").notNull().default(1),
         sweepGasMultiplier: numeric("sweep_gas_multiplier", {
@@ -84,14 +87,7 @@ export const transactions = app.table(
         gasUsed: numeric("gas_used", { precision: 78, scale: 0 }),
         gasPriceWei: numeric("gas_price_wei", { precision: 78, scale: 0 }),
         error: text("error"),
-        meta: jsonb("meta").$type<{
-            decision?: "SWEEP" | "SKIP";
-            tokenValueUsd?: string;
-            gasCostUsd?: string;
-            multiplier?: string;
-            comparison?: ">=";
-            exactThreshold?: boolean;
-        }>(),
+        meta: jsonb("meta").$type<TransactionMeta>(),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true })
             .defaultNow()
@@ -105,11 +101,8 @@ export const transactions = app.table(
             table.logIndex,
             table.type,
         ),
-        uniqueSweepTx: uniqueIndex("transactions_unique_sweep_tx_uq").on(
-            table.chainId,
-            table.txHash,
-            table.type,
-        ),
+        uniqueSweepTx: uniqueIndex("transactions_unique_sweep_tx_uq").on(table.chainId, table.txHash, table.type),
+        userCreatedAtIdx: index("transactions_user_created_at_idx").on(table.userId, table.createdAt),
     }),
 );
 

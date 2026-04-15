@@ -3,26 +3,34 @@ import { and, desc, eq, lt } from "drizzle-orm";
 
 import { db } from "../db/client.js";
 import { transactions, users } from "../db/schema.js";
+import { validateCursor, validateExternalUserId, validatePaginationLimit } from "../services/validation.js";
 
 export const transactionsRoute = new Hono();
 
 transactionsRoute.get("/:userId", async (c) => {
-    const userExternalId = c.req.param("userId");
-    const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
-    const cursor = c.req.query("cursor");
+    const userExternalId = validateExternalUserId(c.req.param("userId"));
+    if (!userExternalId.ok) {
+        return c.json({ error: userExternalId.error }, 400);
+    }
 
-    const [user] = await db.select().from(users).where(eq(users.externalId, userExternalId)).limit(1);
+    const limit = validatePaginationLimit(c.req.query("limit"));
+    if (!limit.ok) {
+        return c.json({ error: limit.error }, 400);
+    }
+
+    const cursor = validateCursor(c.req.query("cursor"));
+    if (!cursor.ok) {
+        return c.json({ error: cursor.error }, 400);
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.externalId, userExternalId.value)).limit(1);
     if (!user) {
         return c.json({ items: [], nextCursor: null });
     }
 
     const conditions = [eq(transactions.userId, user.id)];
-    if (cursor) {
-        const cursorDate = new Date(cursor);
-        if (Number.isNaN(cursorDate.getTime())) {
-            return c.json({ error: "Invalid cursor" }, 400);
-        }
-        conditions.push(lt(transactions.createdAt, cursorDate));
+    if (cursor.value) {
+        conditions.push(lt(transactions.createdAt, cursor.value));
     }
 
     const items = await db
@@ -30,9 +38,9 @@ transactionsRoute.get("/:userId", async (c) => {
         .from(transactions)
         .where(and(...conditions))
         .orderBy(desc(transactions.createdAt))
-        .limit(limit);
+        .limit(limit.value);
 
-    const nextCursor = items.length === limit ? items.at(-1)?.createdAt.toISOString() ?? null : null;
+    const nextCursor = items.length === limit.value ? items.at(-1)?.createdAt.toISOString() ?? null : null;
 
     return c.json({ items, nextCursor });
 });

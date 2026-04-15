@@ -14,7 +14,7 @@ const chainId = Number(process.env.CHAIN_ID ?? 11155111);
 if (!Number.isInteger(chainId) || chainId <= 0) {
     throw new Error(`Invalid CHAIN_ID value: ${process.env.CHAIN_ID ?? ""}`);
 }
-const networkName = resolveNetwork(chainId);
+const network = resolveNetwork(chainId);
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -41,6 +41,7 @@ try {
                 chainId,
                 tokenAddress: DEFAULT_ERC20_TOKEN,
                 symbol: process.env.DEFAULT_ERC20_SYMBOL ?? "USDT",
+                priceProviderId: process.env.DEFAULT_ERC20_PRICE_PROVIDER_ID ?? "tether",
                 decimals: Number(process.env.DEFAULT_ERC20_DECIMALS ?? 18),
                 isActive: 1,
             })
@@ -56,7 +57,7 @@ const erc20TokenAddresses = [...new Set(tokenRows.map((row) => row.tokenAddress.
 
 export default createConfig({
     networks: {
-        [networkName?.name as string]: {
+        [network.name]: {
             chainId,
             transport: http(process.env.RPC_URL),
         },
@@ -78,7 +79,7 @@ export default createConfig({
                     ],
                 },
             ],
-            network: networkName?.name as string,
+            network: network.name,
             address: erc20TokenAddresses,
             startBlock: 0,
         },

@@ -120,9 +120,11 @@ REDIS_URL_DOCKER=redis://redis:6379
 CHAIN_ID=11155111
 RPC_URL=https://your-rpc-provider
 DEFAULT_ERC20_TOKEN=0xbDeaD2A70Fe794D2f97b37EFDE497e68974a296d
+DEFAULT_ERC20_PRICE_PROVIDER_ID=tether
 
 # Wallet (for executing sweeps)
 PRIVATE_KEY=0xYOUR_PRIVATE_KEY
+ADMIN_API_KEY=replace-with-a-long-random-secret
 
 # External Services
 PRICE_API_BASE=https://api.coingecko.com/api/v3
@@ -191,6 +193,7 @@ npm run test             # Run all tests once
 npm run test:watch       # Run tests in watch mode
 ```
 
+
 ### Smart Contract Compilation
 
 ```bash
@@ -203,15 +206,19 @@ npx forge deploy         # Deploy contracts
 
 ### Deposits
 
-#### Generate or Retrieve Deposit Address
+#### Reserve a Deposit Address
 
 ```
-GET /v1/deposits/:userId/:tokenAddress
+POST /v1/deposits
 ```
 
-**Parameters:**
-- `userId` (path): External user identifier
-- `tokenAddress` (path): Token contract address (lowercase)
+**Request body:**
+```json
+{
+  "userId": "customer-123",
+  "tokenAddress": "0x..."
+}
+```
 
 **Response:**
 ```json
@@ -225,20 +232,31 @@ GET /v1/deposits/:userId/:tokenAddress
 }
 ```
 
-**Description:** Creates a unique, deterministic deposit address for a user-token pair. Subsequent calls return the same address.
+**Description:** Reserves a deterministic deposit address for a user-token pair. The first call creates the record; subsequent calls return the same reservation.
+
+#### Read a Reserved Deposit Address
+
+```
+GET /v1/deposits/:userId/:tokenAddress
+```
+
+**Parameters:**
+- `userId` (path): External user identifier
+- `tokenAddress` (path): Token contract address
+
+**Description:** Read-only lookup. Returns `404` when the reservation does not exist.
 
 ### Transactions
 
 #### Get Transaction History
 
 ```
-GET /v1/transactions?userId=...&status=...&type=...
+GET /v1/transactions/:userId?limit=50&cursor=2026-04-14T08:00:00.000Z
 ```
 
 **Optional Parameters:**
-- `userId`: Filter by user ID
-- `status`: `PENDING`, `CONFIRMED`, or `FAILED`
-- `type`: `DEPOSIT` or `SWEEP`
+- `limit`: integer between `1` and `100`
+- `cursor`: ISO timestamp from a previous `nextCursor`
 
 **Response:**
 ```json
@@ -261,7 +279,8 @@ GET /v1/transactions?userId=...&status=...&type=...
         "multiplier": "10.0"
       }
     }
-  ]
+  ],
+  "nextCursor": null
 }
 ```
 
@@ -273,6 +292,8 @@ GET /v1/transactions?userId=...&status=...&type=...
 POST /v1/tokens
 ```
 
+**Authentication:** `x-admin-api-key: <ADMIN_API_KEY>` or `Authorization: Bearer <ADMIN_API_KEY>`
+
 **Optional Parameters:**
  - `chainId`: `11155111` by default
  - `isActive`: Status
@@ -283,6 +304,7 @@ POST /v1/tokens
 {
   "tokenAddress": "0x...",
   "symbol": "USDT",
+  "priceProviderId": "tether",
   "decimals": 6,
   "chainId": 11155111,
   "isActive": true,
